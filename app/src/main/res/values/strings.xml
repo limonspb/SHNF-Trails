@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SHNF Trails</string>
+    <string name="widget_description">Sam Houston National Forest MUT Trail Status</string>
+    <string name="open">OPEN</string>
+    <string name="closed">CLOSED</string>
+    <string name="unknown">N/A</string>
+</resources>

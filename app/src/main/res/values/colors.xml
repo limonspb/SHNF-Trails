@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="status_open">#2E7D32</color>
+    <color name="status_closed">#B71C1C</color>
+    <color name="status_unknown">#424242</color>
+    <color name="text_white">#FFFFFF</color>
+    <color name="ic_launcher_background">#0D47A1</color>
+</resources>
