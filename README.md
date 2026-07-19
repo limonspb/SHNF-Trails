@@ -48,6 +48,80 @@ The widget shows trail sign icons colored **green** (open), **red** (closed), or
 
 ---
 
+## Installing on Your Phone (No Play Store)
+
+Because this app is not published on Google Play, you install it by downloading the APK file directly — a process called **sideloading**. It takes about 2 minutes and only requires tapping through a few Android prompts.
+
+### Step 1 — Download the APK
+
+On your Android phone, open your browser and go to the [**latest release page**](https://github.com/limonspb/SHNF-Trails/releases/latest).
+
+Tap **`SHNF-Trails.apk`** to download it. Your browser may show a warning like *"This type of file can harm your device"* — tap **Download anyway**. This is a standard Android warning shown for all APK files, not specific to this app.
+
+---
+
+### Step 2 — Allow Installation from Unknown Sources
+
+Android blocks apps from outside the Play Store by default. You need to grant your browser (or file manager) permission to install APKs once.
+
+**Android 8 and newer (most phones):**
+
+1. When you tap the downloaded APK, Android will say **"For your security, your phone is not allowed to install unknown apps from this source."**
+2. Tap **Settings** in that dialog.
+3. Toggle **Allow from this source** to ON.
+4. Tap the back button — the install screen will appear automatically.
+
+**What this setting actually does:**  
+It only allows the *specific app you just used* (e.g., Chrome, Firefox, your Downloads app) to install APKs. It does **not** open a global security hole. Other apps on your phone are unaffected.
+
+> ⚠️ **Reverse it after installing (recommended):**  
+> Go to **Settings → Apps → [your browser, e.g. Chrome] → Install unknown apps** and toggle it back **OFF**. This limits your exposure to accidentally installing malicious APKs in the future.
+
+---
+
+### Step 3 — Install the App
+
+After granting the permission, Android shows the standard app install screen listing the permissions the app requests. SHNF Trails only asks for:
+
+- **Internet access** — to check trail status from samhoustontrails.com
+
+Tap **Install**. The app will appear in your app drawer as **SHNF Trails** 🌲.
+
+---
+
+### Step 4 — Add the Widget to Your Home Screen
+
+1. Open **SHNF Trails** from your app drawer.
+2. Tap **"Add Widget to Home Screen"** at the bottom of the screen.
+3. Android will ask you where to place it — tap a home screen location or drag it where you want.
+4. Done! The widget will show trail status and update automatically in the background.
+
+> If the "Add Widget" button doesn't work on your launcher, long-press an empty area of your home screen → tap **Widgets** → find **SHNF Trails** → drag it to your screen.
+
+---
+
+### Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| Widget shows grey flags | No data yet — open the app and tap **Check Now** |
+| "Couldn't add widget" on Samsung | Restart the phone after installing, then try adding the widget again |
+| App says "Checking…" forever | Make sure you have an internet connection |
+| Widget not updating automatically | Open the app, make sure **Auto-refresh status** is turned ON |
+
+---
+
+## ⚠️ Disclaimer
+
+> **SHNF Trails is an independent, unofficial app made by a hiker for personal use.**
+>
+> - This app is **not affiliated with, endorsed by, or made in coordination with** the Sam Houston National Forest, the USDA Forest Service, the Lone Star Hiking Trail Club, or any other government agency or trail organization.
+> - Trail status information is read from [samhoustontrails.com](https://www.samhoustontrails.com) and may be delayed, incorrect, or unavailable. **Always verify trail conditions through official channels before heading out.**
+> - The authors and contributors accept **no liability** for decisions made based on the information shown by this app — including but not limited to injury, property damage, or wasted trips.
+> - Use of this app is entirely at your own risk.
+
+---
+
 ## How It Works
 
 ```
@@ -192,5 +266,5 @@ SOFTWARE.
 ---
 
 <div align="center">
-  <sub>Built for hikers, by hikers. 🌲 Not affiliated with Sam Houston National Forest or the Lone Star Hiking Trail Club.</sub>
+  <sub>Built for hikers, by hikers. 🌲 Unofficial — not affiliated with the USDA Forest Service, Sam Houston National Forest, or the Lone Star Hiking Trail Club.</sub>
 </div>
