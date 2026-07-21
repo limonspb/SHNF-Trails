@@ -96,6 +96,19 @@
             </LinearLayout>
         </LinearLayout>
 
+        <!-- Error reason — only visible when status is grey -->
+        <TextView
+            android:id="@+id/text_error_reason"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textColor="#FF7043"
+            android:textSize="13sp"
+            android:gravity="center"
+            android:paddingTop="4dp"
+            android:paddingBottom="10dp"
+            android:visibility="gone"/>
+
         <!-- Timer card -->
         <LinearLayout
             android:layout_width="match_parent"

@@ -1,33 +1,43 @@
 package com.trailwidget
 
-import android.util.Log
+import android.content.Context
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jsoup.Jsoup
+import java.io.IOException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 
+/** Possible availability states for a trail. */
+enum class TrailStatus { OPEN, CLOSED, UNKNOWN }
+
 /**
- * Possible availability states reported for a trail.
+ * Pair of scraped statuses for the east and west MUT trails.
+ *
+ * @property east parsed status for MUT-East
+ * @property west parsed status for MUT-West
  */
-enum class TrailStatus {
-    OPEN,
-    CLOSED,
-    UNKNOWN
+data class TrailStatuses(val east: TrailStatus, val west: TrailStatus)
+
+/**
+ * Typed result returned by [TrailScraper.fetchStatuses].
+ *
+ * [Success] carries the parsed statuses. [Failure] carries a human-readable reason string
+ * suitable for display in the app UI (e.g. "No internet connection", "Connection timed out").
+ */
+sealed class ScrapeResult {
+    data class Success(val statuses: TrailStatuses) : ScrapeResult()
+    data class Failure(val reason: String) : ScrapeResult()
 }
 
 /**
- * Pair of scraped statuses for the east and west trails.
+ * Network scraper that reads Sam Houston trail pages and infers current open/closed status
+ * for MUT-East and MUT-West.
  *
- * @property east the parsed status for the east trail
- * @property west the parsed status for the west trail
- */
-data class TrailStatuses(
-    val east: TrailStatus,
-    val west: TrailStatus
-)
-
-/**
- * Network scraper that reads Sam Houston trail pages and infers the current trail status text.
+ * The homepage is always fetched first; the secondary URL is only requested when one or both
+ * trail statuses are still unresolved after the first page, saving a network round-trip.
  */
 object TrailScraper {
 
@@ -39,18 +49,10 @@ object TrailScraper {
         "https://www.samhoustontrails.com/closed-trail-status"
     )
     private val EAST_NAMES = listOf(
-        "MUT-East",
-        "MUT East",
-        "Multi-Use Trail East",
-        "Multi Use Trail East",
-        "MUTEAST"
+        "MUT-East", "MUT East", "Multi-Use Trail East", "Multi Use Trail East", "MUTEAST"
     )
     private val WEST_NAMES = listOf(
-        "MUT-West",
-        "MUT West",
-        "Multi-Use Trail West",
-        "Multi Use Trail West",
-        "MUTWEST"
+        "MUT-West", "MUT West", "Multi-Use Trail West", "Multi Use Trail West", "MUTWEST"
     )
 
     private val client = OkHttpClient.Builder()
@@ -59,30 +61,60 @@ object TrailScraper {
         .build()
 
     /**
-     * Fetches a single URL, strips HTML, and returns the remaining visible text.
+     * Fetches and parses trail statuses from the Sam Houston website.
+     *
+     * Returns [ScrapeResult.Success] on any useful result, or [ScrapeResult.Failure] with a
+     * display-ready reason string when all URLs fail or when neither trail can be found on any page.
      */
-    private fun fetchPage(url: String): String? {
-        return try {
-            val request = Request.Builder().url(url).build()
-            val html = client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    return null
-                }
-                response.body?.string()
-            } ?: return null
+    fun fetchStatuses(context: Context): ScrapeResult {
+        var lastException: Exception? = null
+        var fetchedAny = false
+        var east = TrailStatus.UNKNOWN
+        var west = TrailStatus.UNKNOWN
 
-            val document = Jsoup.parse(html)
-            document.select("script, style").remove()
-            val text = document.body()?.text() ?: return null
-            Log.d(TAG, "Fetched $url (${text.length} chars)")
-            text
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to fetch $url: ${e.message}")
-            null
+        for (url in URLS) {
+            if (east != TrailStatus.UNKNOWN && west != TrailStatus.UNKNOWN) break
+            try {
+                val text = fetchPage(url)
+                fetchedAny = true
+                AppLogger.d(context, TAG, "Fetched $url (${text.length} chars)")
+                if (east == TrailStatus.UNKNOWN) east = parseStatus(context, text, EAST_NAMES)
+                if (west == TrailStatus.UNKNOWN) west = parseStatus(context, text, WEST_NAMES)
+            } catch (e: Exception) {
+                AppLogger.e(context, TAG, "Failed to fetch $url", e)
+                lastException = e
+            }
+        }
+
+        return when {
+            !fetchedAny -> classifyNetworkError(lastException)
+            east == TrailStatus.UNKNOWN && west == TrailStatus.UNKNOWN -> {
+                AppLogger.e(context, TAG, "Both trails UNKNOWN — website structure may have changed")
+                ScrapeResult.Failure("Trail status not found on website")
+            }
+            else -> {
+                AppLogger.d(context, TAG, "Scrape success — east=$east, west=$west")
+                ScrapeResult.Success(TrailStatuses(east, west))
+            }
         }
     }
 
-    private fun parseStatus(text: String, names: List<String>): TrailStatus {
+    /**
+     * Fetches a single URL, strips HTML tags, and returns visible page text.
+     * Throws [IOException] (or a subtype) on network failure or non-2xx HTTP response.
+     */
+    private fun fetchPage(url: String): String {
+        val request = Request.Builder().url(url).build()
+        val html = client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
+            response.body?.string() ?: throw IOException("Empty response body")
+        }
+        val document = Jsoup.parse(html)
+        document.select("script, style").remove()
+        return document.body()?.text() ?: throw IOException("Could not parse HTML body")
+    }
+
+    private fun parseStatus(context: Context, text: String, names: List<String>): TrailStatus {
         val uppercaseText = text.uppercase()
 
         for (name in names) {
@@ -91,72 +123,45 @@ object TrailScraper {
 
             while (index >= 0) {
                 val start = maxOf(0, index - CONTEXT_WINDOW)
-                val end = minOf(
-                    uppercaseText.length,
-                    index + uppercaseName.length + CONTEXT_WINDOW
-                )
-                val contextWindow = uppercaseText.substring(start, end)
+                val end = minOf(uppercaseText.length, index + uppercaseName.length + CONTEXT_WINDOW)
+                val window = uppercaseText.substring(start, end)
 
                 when {
-                    containsClosedKeyword(contextWindow) -> {
-                        Log.d(TAG, "Trail '$name' → CLOSED")
+                    containsClosedKeyword(window) -> {
+                        AppLogger.d(context, TAG, "Trail '${names[0]}' → CLOSED")
                         return TrailStatus.CLOSED
                     }
-                    containsOpenKeyword(contextWindow) -> {
-                        Log.d(TAG, "Trail '$name' → OPEN")
+                    containsOpenKeyword(window) -> {
+                        AppLogger.d(context, TAG, "Trail '${names[0]}' → OPEN")
                         return TrailStatus.OPEN
                     }
                 }
-
                 index = uppercaseText.indexOf(uppercaseName, index + 1)
             }
         }
 
-        Log.d(TAG, "Trail '${names[0]}' → UNKNOWN")
+        AppLogger.d(context, TAG, "Trail '${names[0]}' → UNKNOWN (not found on this page)")
         return TrailStatus.UNKNOWN
     }
 
-    private fun containsClosedKeyword(contextWindow: String): Boolean =
-        contextWindow.contains("TEMPORARILY CLOSED") ||
-            contextWindow.contains("TEMP CLOSED") ||
-            contextWindow.contains(" CLOSED") ||
-            contextWindow.contains("\nCLOSED") ||
-            contextWindow.contains(":CLOSED") ||
-            contextWindow.contains("IS CLOSED") ||
-            contextWindow.contains("ARE CLOSED") ||
-            contextWindow.contains("CLOSURE")
-
-    private fun containsOpenKeyword(contextWindow: String): Boolean =
-        contextWindow.contains(" OPEN") ||
-            contextWindow.contains("\nOPEN") ||
-            contextWindow.contains(":OPEN") ||
-            contextWindow.contains("IS OPEN") ||
-            contextWindow.contains("ARE OPEN") ||
-            contextWindow.contains("NOW OPEN") ||
-            contextWindow.contains("REOPENED")
-
-    /**
-     * Fetches trail statuses. The fallback page is only requested when the first page does not
-     * resolve both trails, which preserves the existing behavior while reducing unnecessary work.
-     */
-    fun fetchStatuses(): TrailStatuses {
-        var east = TrailStatus.UNKNOWN
-        var west = TrailStatus.UNKNOWN
-
-        for (url in URLS) {
-            if (east != TrailStatus.UNKNOWN && west != TrailStatus.UNKNOWN) {
-                break
-            }
-
-            val text = fetchPage(url) ?: continue
-            if (east == TrailStatus.UNKNOWN) {
-                east = parseStatus(text, EAST_NAMES)
-            }
-            if (west == TrailStatus.UNKNOWN) {
-                west = parseStatus(text, WEST_NAMES)
-            }
+    private fun classifyNetworkError(e: Exception?): ScrapeResult.Failure {
+        val reason = when (e) {
+            is UnknownHostException -> "No internet connection"
+            is SocketTimeoutException -> "Connection timed out"
+            is ConnectException -> "Cannot reach samhoustontrails.com"
+            is IOException -> "Network error: ${e.message ?: "unknown"}"
+            else -> "Unexpected error: ${e?.message ?: "unknown"}"
         }
-
-        return TrailStatuses(east, west)
+        return ScrapeResult.Failure(reason)
     }
+
+    private fun containsClosedKeyword(w: String): Boolean =
+        w.contains("TEMPORARILY CLOSED") || w.contains("TEMP CLOSED") ||
+            w.contains(" CLOSED") || w.contains("\nCLOSED") || w.contains(":CLOSED") ||
+            w.contains("IS CLOSED") || w.contains("ARE CLOSED") || w.contains("CLOSURE")
+
+    private fun containsOpenKeyword(w: String): Boolean =
+        w.contains(" OPEN") || w.contains("\nOPEN") || w.contains(":OPEN") ||
+            w.contains("IS OPEN") || w.contains("ARE OPEN") ||
+            w.contains("NOW OPEN") || w.contains("REOPENED")
 }

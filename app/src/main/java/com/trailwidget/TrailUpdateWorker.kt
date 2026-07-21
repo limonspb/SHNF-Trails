@@ -3,59 +3,68 @@ package com.trailwidget
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
-import android.util.Log
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 
 /**
  * WorkManager task that refreshes trail statuses and pushes the latest state to widgets.
+ *
+ * On failure the worker retries once after [RETRY_DELAY_MS] before giving up. If both attempts
+ * fail, grey status is saved immediately with a human-readable reason — no stale timer needed.
+ * [Result.success] is always returned so WorkManager does not apply exponential back-off that
+ * would delay the next scheduled hourly run.
  */
 class TrailUpdateWorker(
     private val context: Context,
     params: WorkerParameters
 ) : Worker(context, params) {
 
-    /**
-     * Fetches the latest trail statuses, persists them locally, and refreshes any active widgets.
-     *
-     * Returns [Result.success] after a successful refresh, or [Result.retry] when the scrape
-     * fails so WorkManager can attempt the update again later.
-     */
     override fun doWork(): Result {
-        Log.d(TAG, "Starting trail status update")
+        AppLogger.i(context, TAG, "Background update started")
 
-        return try {
-            val statuses = TrailScraper.fetchStatuses()
-            Log.d(TAG, "Fetched statuses: east=${statuses.east}, west=${statuses.west}")
-
-            StatusStore.save(context, statuses)
-            pushWidgetUpdate(context)
-
-            Result.success()
-        } catch (e: Exception) {
-            Log.e(TAG, "Worker failed: ${e.message}", e)
-
-            // Save UNKNOWN on failure so the widget goes grey.
-            StatusStore.saveError(context)
-            pushWidgetUpdate(context)
-
-            Result.retry()
+        val first = TrailScraper.fetchStatuses(context)
+        if (first is ScrapeResult.Success) {
+            commit(first.statuses)
+            return Result.success()
         }
+
+        // First attempt failed — wait briefly and retry once.
+        val firstReason = (first as ScrapeResult.Failure).reason
+        AppLogger.e(context, TAG, "Attempt 1 failed: $firstReason — retrying in ${RETRY_DELAY_MS}ms")
+        Thread.sleep(RETRY_DELAY_MS)
+
+        val second = TrailScraper.fetchStatuses(context)
+        if (second is ScrapeResult.Success) {
+            AppLogger.i(context, TAG, "Retry succeeded")
+            commit(second.statuses)
+            return Result.success()
+        }
+
+        val finalReason = (second as ScrapeResult.Failure).reason
+        AppLogger.e(context, TAG, "Retry also failed: $finalReason — widget set to grey")
+        StatusStore.saveError(context, finalReason)
+        pushWidgetUpdate()
+
+        return Result.success()
     }
 
-    private fun pushWidgetUpdate(ctx: Context) {
-        val appWidgetManager = AppWidgetManager.getInstance(ctx)
-        val appWidgetIds = appWidgetManager.getAppWidgetIds(
-            ComponentName(ctx, TrailWidgetProvider::class.java)
-        )
+    private fun commit(statuses: TrailStatuses) {
+        StatusStore.save(context, statuses)
+        pushWidgetUpdate()
+        AppLogger.i(context, TAG, "Update committed — east=${statuses.east}, west=${statuses.west}")
+    }
 
-        if (appWidgetIds.isNotEmpty()) {
-            TrailWidgetProvider.updateWidgets(ctx, appWidgetManager, appWidgetIds)
-            Log.d(TAG, "Widgets updated: ${appWidgetIds.size}")
+    private fun pushWidgetUpdate() {
+        val manager = AppWidgetManager.getInstance(context)
+        val ids = manager.getAppWidgetIds(ComponentName(context, TrailWidgetProvider::class.java))
+        if (ids.isNotEmpty()) {
+            TrailWidgetProvider.updateWidgets(context, manager, ids)
+            AppLogger.d(context, TAG, "Widget update pushed to ${ids.size} widget(s)")
         }
     }
 
     companion object {
         const val TAG = "TrailUpdateWorker"
+        private const val RETRY_DELAY_MS = 3_000L
     }
 }

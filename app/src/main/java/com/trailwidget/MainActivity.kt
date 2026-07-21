@@ -162,14 +162,11 @@ class MainActivity : AppCompatActivity() {
         val progressBar = findViewById<ProgressBar>(R.id.progress_bar)
         progressBar.isIndeterminate = true
 
-        // Keep the existing lightweight background threading model without blocking the UI.
         Thread {
-            val result = try {
-                TrailScraper.fetchStatuses()
-            } catch (_: Exception) {
-                TrailStatuses(TrailStatus.UNKNOWN, TrailStatus.UNKNOWN)
+            when (val result = TrailScraper.fetchStatuses(this)) {
+                is ScrapeResult.Success -> StatusStore.save(this, result.statuses)
+                is ScrapeResult.Failure -> StatusStore.saveError(this, result.reason)
             }
-            StatusStore.save(this, result)
 
             val appWidgetManager = AppWidgetManager.getInstance(this)
             val appWidgetIds = appWidgetManager.getAppWidgetIds(
@@ -198,6 +195,16 @@ class MainActivity : AppCompatActivity() {
         val statuses = StatusStore.load(this)
         updateCard(R.id.card_east, R.id.text_east, statuses.east)
         updateCard(R.id.card_west, R.id.text_west, statuses.west)
+
+        val errorView = findViewById<TextView>(R.id.text_error_reason)
+        val isGrey = statuses.east == TrailStatus.UNKNOWN || statuses.west == TrailStatus.UNKNOWN
+        val failMessage = StatusStore.getFailMessage(this)
+        if (isGrey && failMessage.isNotEmpty()) {
+            errorView.text = "⚠ $failMessage"
+            errorView.visibility = View.VISIBLE
+        } else {
+            errorView.visibility = View.GONE
+        }
     }
 
     private fun updateCard(
