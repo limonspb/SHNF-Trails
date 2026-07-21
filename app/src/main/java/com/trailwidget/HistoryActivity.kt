@@ -31,36 +31,20 @@ class HistoryActivity : AppCompatActivity() {
         val entries = HistoryStore.load(this)
         val container = findViewById<LinearLayout>(R.id.history_container)
         val emptyView = findViewById<TextView>(R.id.text_empty)
+        emptyView.visibility = View.GONE
+        container.visibility = View.VISIBLE
+
+        val inflater = LayoutInflater.from(this)
 
         if (entries.isEmpty()) {
+            // No recorded changes yet — show the current status as a single "now" entry.
             val current = StatusStore.load(this)
-            emptyView.text = buildString {
-                append("No status changes recorded yet.\n\n")
-                append("Current status:\n")
-                append("MUT-East: ${label(current.east)}\n")
-                append("MUT-West: ${label(current.west)}")
-            }
-            emptyView.visibility = View.VISIBLE
-            container.visibility = View.GONE
+            addRow(inflater, container, HistoryEntry(current.east, current.west, System.currentTimeMillis()), isNow = true)
         } else {
-            emptyView.visibility = View.GONE
-            container.visibility = View.VISIBLE
-            val inflater = LayoutInflater.from(this)
             for (entry in entries) {
-                val row = inflater.inflate(R.layout.item_history, container, false)
-                setDotColor(row.findViewById(R.id.dot_east), entry.east)
-                setDotColor(row.findViewById(R.id.dot_west), entry.west)
-                row.findViewById<TextView>(R.id.text_history_status).text =
-                    "E: ${label(entry.east)}  ·  W: ${label(entry.west)}"
-                row.findViewById<TextView>(R.id.text_history_time).text =
-                    dateFormat.format(Date(entry.timestamp))
-                container.addView(row)
-
-                // Divider
+                addRow(inflater, container, entry, isNow = false)
                 val divider = View(this)
-                divider.layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, 1
-                )
+                divider.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
                 divider.setBackgroundColor(0xFF1E3020.toInt())
                 container.addView(divider)
             }
@@ -70,6 +54,17 @@ class HistoryActivity : AppCompatActivity() {
     override fun onSupportNavigateUp(): Boolean {
         onBackPressedDispatcher.onBackPressed()
         return true
+    }
+
+    private fun addRow(inflater: LayoutInflater, container: LinearLayout, entry: HistoryEntry, isNow: Boolean) {
+        val row = inflater.inflate(R.layout.item_history, container, false)
+        setDotColor(row.findViewById(R.id.dot_east), entry.east)
+        setDotColor(row.findViewById(R.id.dot_west), entry.west)
+        row.findViewById<TextView>(R.id.text_history_status).text =
+            "E: ${label(entry.east)}  ·  W: ${label(entry.west)}"
+        row.findViewById<TextView>(R.id.text_history_time).text =
+            if (isNow) "Now (no changes recorded yet)" else dateFormat.format(Date(entry.timestamp))
+        container.addView(row)
     }
 
     private fun setDotColor(dot: View, status: TrailStatus) {
