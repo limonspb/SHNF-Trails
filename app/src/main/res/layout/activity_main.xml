@@ -159,15 +159,15 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:weightSum="2"
-            android:layout_marginBottom="26dp">
+            android:weightSum="3"
+            android:layout_marginBottom="12dp">
 
             <Button
                 android:id="@+id/btn_refresh"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginEnd="8dp"
+                android:layout_marginEnd="6dp"
                 android:text="Check Now"/>
 
             <Button
@@ -175,8 +175,19 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                android:text="Open Website"/>
+                android:layout_marginStart="3dp"
+                android:layout_marginEnd="3dp"
+                android:text="Website"/>
+
+            <Button
+                android:id="@+id/btn_history"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:text="History"
+                android:backgroundTint="#1A2E1A"
+                android:textColor="#6EAB6E"/>
         </LinearLayout>
 
         <!-- Divider -->

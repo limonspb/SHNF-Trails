@@ -36,6 +36,12 @@
                 android:resource="@xml/widget_info" />
         </receiver>
 
+        <!-- History activity -->
+        <activity
+            android:name=".HistoryActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity"/>
+
     </application>
 
 </manifest>

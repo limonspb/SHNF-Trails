@@ -64,17 +64,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupButtons() {
         findViewById<Button>(R.id.btn_refresh).setOnClickListener {
-            if (!isChecking) {
-                startCheck()
-            }
+            if (!isChecking) startCheck()
         }
         findViewById<Button>(R.id.btn_website).setOnClickListener {
-            startActivity(
-                Intent(
-                    Intent.ACTION_VIEW,
-                    Uri.parse("https://www.samhoustontrails.com/")
-                )
-            )
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.samhoustontrails.com/")))
+        }
+        findViewById<Button>(R.id.btn_history).setOnClickListener {
+            startActivity(Intent(this, HistoryActivity::class.java))
         }
         findViewById<Button>(R.id.btn_add_widget).setOnClickListener {
             pinWidget()

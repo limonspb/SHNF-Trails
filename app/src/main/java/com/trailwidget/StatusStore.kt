@@ -25,7 +25,8 @@ object StatusStore {
     const val DEFAULT_INTERVAL_MINUTES = 60
 
     /**
-     * Persists the latest fetched trail statuses and clears any previous error message.
+     * Persists the latest fetched trail statuses, clears any previous error message,
+     * and appends a history entry if the status changed since the last record.
      */
     fun save(context: Context, statuses: TrailStatuses) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().apply {
@@ -35,6 +36,7 @@ object StatusStore {
             putString(KEY_FAIL_MESSAGE, "")
             apply()
         }
+        HistoryStore.record(context, statuses)
     }
 
     /**
