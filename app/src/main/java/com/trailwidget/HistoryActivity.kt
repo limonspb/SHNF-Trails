@@ -28,7 +28,7 @@ class HistoryActivity : AppCompatActivity() {
             setDisplayHomeAsUpEnabled(true)
         }
 
-        val entries = HistoryStore.load(this)
+        var entries = HistoryStore.load(this)
         val container = findViewById<LinearLayout>(R.id.history_container)
         val emptyView = findViewById<TextView>(R.id.text_empty)
         emptyView.visibility = View.GONE
@@ -37,9 +37,26 @@ class HistoryActivity : AppCompatActivity() {
         val inflater = LayoutInflater.from(this)
 
         if (entries.isEmpty()) {
-            // No recorded changes yet — show the current status as a single "now" entry.
             val current = StatusStore.load(this)
-            addRow(inflater, container, HistoryEntry(current.east, current.west, System.currentTimeMillis()), isNow = true)
+            val failMsg = StatusStore.getFailMessage(this)
+            when {
+                current.east != TrailStatus.UNKNOWN || current.west != TrailStatus.UNKNOWN -> {
+                    // Real status data exists but no history yet — seed it as baseline.
+                    HistoryStore.record(this, current)
+                    entries = HistoryStore.load(this)
+                    for (entry in entries) addRow(inflater, container, entry, isNow = true)
+                }
+                failMsg.isNotEmpty() -> {
+                    emptyView.text = "Last check failed:\n$failMsg\n\nTap \u201cCheck Now\u201d in the app to retry."
+                    emptyView.visibility = View.VISIBLE
+                    container.visibility = View.GONE
+                }
+                else -> {
+                    emptyView.text = "No status recorded yet.\n\nTap \u201cCheck Now\u201d in the app to fetch trail status."
+                    emptyView.visibility = View.VISIBLE
+                    container.visibility = View.GONE
+                }
+            }
         } else {
             for (entry in entries) {
                 addRow(inflater, container, entry, isNow = false)

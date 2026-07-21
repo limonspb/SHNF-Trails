@@ -27,9 +27,10 @@ class MainActivity : AppCompatActivity() {
     private var isChecking = false
     private var suppressSpinner = false
 
-    // Refreshes the timer display every 30 seconds while the activity is visible.
+    // Refreshes both status cards and the timer display every 30 seconds while visible.
     private val timerTick = object : Runnable {
         override fun run() {
+            refreshStatusCards()
             refreshTimerSection()
             handler.postDelayed(this, TIMER_REFRESH_INTERVAL_MS)
         }
