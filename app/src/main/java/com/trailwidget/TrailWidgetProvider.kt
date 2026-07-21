@@ -25,6 +25,7 @@ class TrailWidgetProvider : AppWidgetProvider() {
 
     /**
      * Redraws active widgets and ensures periodic background work is scheduled.
+     * Also triggers an immediate fetch so newly placed widgets show fresh data right away.
      */
     override fun onUpdate(
         context: Context,
@@ -34,6 +35,7 @@ class TrailWidgetProvider : AppWidgetProvider() {
         try {
             updateWidgets(context, appWidgetManager, appWidgetIds)
             scheduleWork(context)
+            enqueueImmediateUpdate(context)
         } catch (t: Throwable) {
             Log.e(TAG, "onUpdate failed", t)
         }
