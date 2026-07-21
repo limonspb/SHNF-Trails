@@ -28,8 +28,11 @@ class TrailUpdateWorker(
             return Result.success()
         }
 
-        // First attempt failed — wait briefly and retry once.
-        val firstReason = (first as ScrapeResult.Failure).reason
+        val firstReason = when (first) {
+            is ScrapeResult.NetworkFailure -> first.reason
+            is ScrapeResult.ParseFailure -> first.reason
+            else -> "unknown"
+        }
         AppLogger.e(context, TAG, "Attempt 1 failed: $firstReason — retrying in ${RETRY_DELAY_MS}ms")
         Thread.sleep(RETRY_DELAY_MS)
 
@@ -40,9 +43,19 @@ class TrailUpdateWorker(
             return Result.success()
         }
 
-        val finalReason = (second as ScrapeResult.Failure).reason
-        AppLogger.e(context, TAG, "Retry also failed: $finalReason — widget set to grey")
-        StatusStore.saveError(context, finalReason)
+        when (second) {
+            is ScrapeResult.NetworkFailure -> {
+                // Transient network issue — keep last known status, just warn.
+                AppLogger.e(context, TAG, "Retry also failed (network): ${second.reason} — keeping last known status")
+                StatusStore.saveNetworkError(context, second.reason)
+            }
+            is ScrapeResult.ParseFailure -> {
+                // Website reached but data missing — status genuinely unknown, go grey.
+                AppLogger.e(context, TAG, "Retry also failed (parse): ${second.reason} — widget set to grey")
+                StatusStore.saveError(context, second.reason)
+            }
+            else -> Unit
+        }
         pushWidgetUpdate()
 
         return Result.success()

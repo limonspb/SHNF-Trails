@@ -162,7 +162,8 @@ class MainActivity : AppCompatActivity() {
         Thread {
             when (val result = TrailScraper.fetchStatuses(this)) {
                 is ScrapeResult.Success -> StatusStore.save(this, result.statuses)
-                is ScrapeResult.Failure -> StatusStore.saveError(this, result.reason)
+                is ScrapeResult.NetworkFailure -> StatusStore.saveNetworkError(this, result.reason)
+                is ScrapeResult.ParseFailure -> StatusStore.saveError(this, result.reason)
             }
 
             val appWidgetManager = AppWidgetManager.getInstance(this)

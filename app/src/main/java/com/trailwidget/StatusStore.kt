@@ -40,8 +40,20 @@ object StatusStore {
     }
 
     /**
+     * Records a network error without changing the stored trail statuses.
+     * The last known status (e.g. CLOSED) remains visible; only the warning message is updated.
+     * Use this for transient connectivity failures where the last known status is still valid.
+     */
+    fun saveNetworkError(context: Context, reason: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(KEY_FAIL_MESSAGE, reason)
+            .apply()
+    }
+
+    /**
      * Persists an error state with a [reason] string shown in the app when the widget is grey.
      * The timestamp is NOT updated so the "last checked" timer stays accurate.
+     * Use this for parse failures where the current status is genuinely unknown.
      */
     fun saveError(context: Context, reason: String) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().apply {

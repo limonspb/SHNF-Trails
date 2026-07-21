@@ -24,12 +24,16 @@ data class TrailStatuses(val east: TrailStatus, val west: TrailStatus)
 /**
  * Typed result returned by [TrailScraper.fetchStatuses].
  *
- * [Success] carries the parsed statuses. [Failure] carries a human-readable reason string
- * suitable for display in the app UI (e.g. "No internet connection", "Connection timed out").
+ * [Success] carries the parsed statuses.
+ * [NetworkFailure] means the host was unreachable (DNS, timeout, no connectivity) — the last
+ *   known status is still valid and should be kept; only the error message is updated.
+ * [ParseFailure] means the website was reached but trail names could not be found — the status
+ *   is genuinely unknown and the widget should go grey.
  */
 sealed class ScrapeResult {
     data class Success(val statuses: TrailStatuses) : ScrapeResult()
-    data class Failure(val reason: String) : ScrapeResult()
+    data class NetworkFailure(val reason: String) : ScrapeResult()
+    data class ParseFailure(val reason: String) : ScrapeResult()
 }
 
 /**
@@ -90,7 +94,7 @@ object TrailScraper {
             !fetchedAny -> classifyNetworkError(lastException)
             east == TrailStatus.UNKNOWN && west == TrailStatus.UNKNOWN -> {
                 AppLogger.e(context, TAG, "Both trails UNKNOWN — website structure may have changed")
-                ScrapeResult.Failure("Trail status not found on website")
+                ScrapeResult.ParseFailure("Trail status not found on website")
             }
             else -> {
                 AppLogger.d(context, TAG, "Scrape success — east=$east, west=$west")
@@ -144,7 +148,7 @@ object TrailScraper {
         return TrailStatus.UNKNOWN
     }
 
-    private fun classifyNetworkError(e: Exception?): ScrapeResult.Failure {
+    private fun classifyNetworkError(e: Exception?): ScrapeResult.NetworkFailure {
         val reason = when (e) {
             is UnknownHostException -> "No internet connection"
             is SocketTimeoutException -> "Connection timed out"
@@ -152,7 +156,7 @@ object TrailScraper {
             is IOException -> "Network error: ${e.message ?: "unknown"}"
             else -> "Unexpected error: ${e?.message ?: "unknown"}"
         }
-        return ScrapeResult.Failure(reason)
+        return ScrapeResult.NetworkFailure(reason)
     }
 
     private fun containsClosedKeyword(w: String): Boolean =
