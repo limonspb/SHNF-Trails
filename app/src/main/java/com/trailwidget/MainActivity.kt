@@ -159,27 +159,32 @@ class MainActivity : AppCompatActivity() {
         val progressBar = findViewById<ProgressBar>(R.id.progress_bar)
         progressBar.isIndeterminate = true
 
+        // Capture applicationContext so the thread doesn't hold a reference to the Activity
+        // for the full network duration (up to ~70s), preventing a leak on rotation/back.
+        val appContext = applicationContext
         Thread {
-            when (val result = TrailScraper.fetchStatuses(this)) {
-                is ScrapeResult.Success -> StatusStore.save(this, result.statuses)
-                is ScrapeResult.NetworkFailure -> StatusStore.saveError(this, result.reason)
-                is ScrapeResult.ParseFailure -> StatusStore.saveError(this, result.reason)
+            when (val result = TrailScraper.fetchStatuses(appContext)) {
+                is ScrapeResult.Success -> StatusStore.save(appContext, result.statuses)
+                is ScrapeResult.NetworkFailure -> StatusStore.saveError(appContext, result.reason)
+                is ScrapeResult.ParseFailure -> StatusStore.saveError(appContext, result.reason)
             }
 
-            val appWidgetManager = AppWidgetManager.getInstance(this)
+            val appWidgetManager = AppWidgetManager.getInstance(appContext)
             val appWidgetIds = appWidgetManager.getAppWidgetIds(
-                ComponentName(this, TrailWidgetProvider::class.java)
+                ComponentName(appContext, TrailWidgetProvider::class.java)
             )
             if (appWidgetIds.isNotEmpty()) {
-                TrailWidgetProvider.updateWidgets(this, appWidgetManager, appWidgetIds)
+                TrailWidgetProvider.updateWidgets(appContext, appWidgetManager, appWidgetIds)
             }
 
             runOnUiThread {
-                isChecking = false
-                refreshButton.isEnabled = true
-                refreshButton.text = "Check Now"
-                progressBar.isIndeterminate = false
-                refreshAll()
+                if (!isFinishing && !isDestroyed) {
+                    isChecking = false
+                    refreshButton.isEnabled = true
+                    refreshButton.text = "Check Now"
+                    progressBar.isIndeterminate = false
+                    refreshAll()
+                }
             }
         }.start()
     }

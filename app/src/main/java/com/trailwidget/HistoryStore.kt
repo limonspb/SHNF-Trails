@@ -25,8 +25,9 @@ object HistoryStore {
 
     /**
      * Records [statuses] only if they differ from the last stored entry.
-     * Call this after every successful fetch (not after errors).
+     * Synchronized to prevent concurrent workers from racing on the read-modify-write.
      */
+    @Synchronized
     fun record(context: Context, statuses: TrailStatuses) {
         val entries = loadAscending(context).toMutableList()
 

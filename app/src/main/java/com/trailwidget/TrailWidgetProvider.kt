@@ -8,7 +8,6 @@ import android.content.Intent
 import android.graphics.*
 import android.util.Log
 import android.widget.RemoteViews
-import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
@@ -91,17 +90,11 @@ class TrailWidgetProvider : AppWidgetProvider() {
     }
 
     /**
-     * Handles widget refresh broadcasts.
+     * Handles widget update broadcasts. ACTION_REFRESH is kept for potential future in-app
+     * use but is no longer exposed via the intent filter (security hardening).
      */
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-
-        if (intent.action == ACTION_REFRESH) {
-            try {
-                enqueueImmediateUpdate(context)
-            } catch (_: Throwable) {
-            }
-        }
     }
 
     companion object {
@@ -119,6 +112,7 @@ class TrailWidgetProvider : AppWidgetProvider() {
 
         private const val DEFAULT_BITMAP_SIZE_PX = 200
         private const val MIN_BITMAP_SIZE_PX = 80
+        private const val MAX_BITMAP_SIZE_PX = 512   // cap prevents TransactionTooLargeException on high-density screens
         private const val EDGE_SHADOW_ALPHA = 50
         private const val TEXT_SHADOW_ALPHA = 140
         private val COLOR_WIDGET_BACKGROUND = 0xFF1B3A1B.toInt()
@@ -186,7 +180,7 @@ class TrailWidgetProvider : AppWidgetProvider() {
             bmpH: Int = DEFAULT_BITMAP_SIZE_PX
         ): Bitmap {
             // Always square — fitCenter in the ImageView handles portrait cells gracefully.
-            val size = minOf(bmpW, bmpH).coerceAtLeast(MIN_BITMAP_SIZE_PX)
+            val size = minOf(bmpW, bmpH).coerceIn(MIN_BITMAP_SIZE_PX, MAX_BITMAP_SIZE_PX)
             val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
             val paint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -335,11 +329,6 @@ class TrailWidgetProvider : AppWidgetProvider() {
                     TimeUnit.MINUTES
                 )
                     .setConstraints(constraints)
-                    .setBackoffCriteria(
-                        BackoffPolicy.LINEAR,
-                        15,
-                        TimeUnit.MINUTES
-                    )
                     .build()
 
             // KEEP: don't reset the timer on every onUpdate() call — that destabilizes scheduling.

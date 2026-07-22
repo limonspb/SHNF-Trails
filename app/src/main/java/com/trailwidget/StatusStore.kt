@@ -47,6 +47,7 @@ object StatusStore {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().apply {
             putString(KEY_EAST, TrailStatus.UNKNOWN.name)
             putString(KEY_WEST, TrailStatus.UNKNOWN.name)
+            putLong(KEY_UPDATED_AT, System.currentTimeMillis())   // record attempt time so timer stays accurate
             putString(KEY_FAIL_MESSAGE, reason)
             apply()
         }
