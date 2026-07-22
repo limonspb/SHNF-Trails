@@ -87,6 +87,9 @@ object TrailScraper {
             } catch (e: Exception) {
                 AppLogger.e(context, TAG, "Failed to fetch $url", e)
                 lastException = e
+                // Network-level failure (DNS, timeout, no connectivity) — no point trying
+                // further URLs since they'll fail for the same reason.
+                if (e is UnknownHostException || e is SocketTimeoutException || e is ConnectException) break
             }
         }
 

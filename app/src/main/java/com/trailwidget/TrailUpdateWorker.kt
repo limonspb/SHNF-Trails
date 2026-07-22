@@ -3,16 +3,20 @@ package com.trailwidget
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 
 /**
  * WorkManager task that refreshes trail statuses and pushes the latest state to widgets.
  *
- * On failure the worker retries once after [RETRY_DELAY_MS] before giving up. If both attempts
- * fail, grey status is saved immediately with a human-readable reason — no stale timer needed.
- * [Result.success] is always returned so WorkManager does not apply exponential back-off that
- * would delay the next scheduled hourly run.
+ * Before fetching, checks that the network is fully validated (internet reachable, not just
+ * connected). This avoids the common failure mode where WorkManager fires right as the phone
+ * radio wakes up — the interface is "connected" but DNS isn't ready yet.
+ *
+ * On failure the worker retries once after [RETRY_DELAY_MS] before giving up.
+ * [Result.success] is always returned so WorkManager does not apply exponential back-off.
  */
 class TrailUpdateWorker(
     private val context: Context,
@@ -21,6 +25,18 @@ class TrailUpdateWorker(
 
     override fun doWork(): Result {
         AppLogger.i(context, TAG, "Background update started")
+
+        if (!isNetworkValidated()) {
+            AppLogger.e(context, TAG, "Network not validated (DNS may not be ready) — waiting ${RETRY_DELAY_MS}ms before retry")
+            Thread.sleep(RETRY_DELAY_MS)
+            if (!isNetworkValidated()) {
+                AppLogger.e(context, TAG, "Network still not validated after wait — widget set to grey")
+                StatusStore.saveError(context, "Network not available")
+                pushWidgetUpdate()
+                return Result.success()
+            }
+            AppLogger.i(context, TAG, "Network validated after wait — proceeding")
+        }
 
         val first = TrailScraper.fetchStatuses(context)
         if (first is ScrapeResult.Success) {
@@ -59,6 +75,15 @@ class TrailUpdateWorker(
         return Result.success()
     }
 
+    /** Returns true if the active network has been validated for internet connectivity. */
+    private fun isNetworkValidated(): Boolean {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(network) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+               caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
     private fun commit(statuses: TrailStatuses) {
         StatusStore.save(context, statuses)
         pushWidgetUpdate()
@@ -76,6 +101,7 @@ class TrailUpdateWorker(
 
     companion object {
         const val TAG = "TrailUpdateWorker"
-        private const val RETRY_DELAY_MS = 3_000L
+        private const val RETRY_DELAY_MS = 20_000L
     }
 }
+

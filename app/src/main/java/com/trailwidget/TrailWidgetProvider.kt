@@ -107,6 +107,7 @@ class TrailWidgetProvider : AppWidgetProvider() {
     companion object {
         const val TAG = "TrailWidget"
         const val WORK_NAME = "trail_periodic_update"
+        private const val IMMEDIATE_WORK_NAME = "trail_immediate_update"
         const val ACTION_REFRESH = "com.trailwidget.REFRESH"
 
         /**
@@ -314,8 +315,10 @@ class TrailWidgetProvider : AppWidgetProvider() {
 
         /**
          * Schedules or cancels the periodic widget refresh job based on saved settings.
+         * Uses KEEP so that an existing schedule is never reset when called from onUpdate().
+         * Only UPDATE is used when settings change (interval reschedule).
          */
-        fun scheduleWork(context: Context) {
+        fun scheduleWork(context: Context, forceReschedule: Boolean = false) {
             if (!StatusStore.isAutoUpdateEnabled(context)) {
                 WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
                 return
@@ -339,22 +342,25 @@ class TrailWidgetProvider : AppWidgetProvider() {
                     )
                     .build()
 
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                WORK_NAME,
-                ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE,
-                request
-            )
+            // KEEP: don't reset the timer on every onUpdate() call — that destabilizes scheduling.
+            // CANCEL_AND_REENQUEUE only when the user explicitly changes the interval.
+            val policy = if (forceReschedule) ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE
+                         else ExistingPeriodicWorkPolicy.KEEP
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK_NAME, policy, request)
         }
 
         /**
          * Enqueues a one-time refresh so widgets can update immediately.
+         * Uses unique work with REPLACE policy so N concurrent onUpdate() calls (one per widget
+         * instance) collapse into a single worker rather than spawning N parallel fetches.
          */
         fun enqueueImmediateUpdate(context: Context) {
             val request = OneTimeWorkRequestBuilder<TrailUpdateWorker>()
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build()
 
-            WorkManager.getInstance(context).enqueue(request)
+            WorkManager.getInstance(context)
+                .enqueueUniqueWork(IMMEDIATE_WORK_NAME, androidx.work.ExistingWorkPolicy.REPLACE, request)
         }
     }
 }

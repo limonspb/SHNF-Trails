@@ -97,7 +97,7 @@ class MainActivity : AppCompatActivity() {
         autoUpdateSwitch.isChecked = StatusStore.isAutoUpdateEnabled(this)
         autoUpdateSwitch.setOnCheckedChangeListener { _, checked ->
             StatusStore.setAutoUpdateEnabled(this, checked)
-            TrailWidgetProvider.scheduleWork(this)
+            TrailWidgetProvider.scheduleWork(this, forceReschedule = true)
             updateIntervalSpinnerEnabled()
             refreshTimerSection()
         }
@@ -133,7 +133,7 @@ class MainActivity : AppCompatActivity() {
                     this@MainActivity,
                     StatusStore.INTERVAL_OPTIONS[pos]
                 )
-                TrailWidgetProvider.scheduleWork(this@MainActivity)
+                TrailWidgetProvider.scheduleWork(this@MainActivity, forceReschedule = true)
             }
 
             override fun onNothingSelected(parent: AdapterView<*>) = Unit
