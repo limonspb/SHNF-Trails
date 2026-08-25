@@ -5,6 +5,25 @@
     android:orientation="vertical"
     android:background="#0D1A0E">
 
+    <CheckBox
+        android:id="@+id/checkbox_show_no_network"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Show no-network events"
+        android:textColor="#AAAAAA"
+        android:textSize="13sp"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
+        android:buttonTint="#4CAF50"
+        android:checked="false"/>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#1E3020"/>
+
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"

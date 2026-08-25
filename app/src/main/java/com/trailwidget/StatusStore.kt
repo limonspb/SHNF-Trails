@@ -41,9 +41,10 @@ object StatusStore {
 
     /**
      * Persists an error state (grey) with a [reason] string shown in the app.
+     * [isNoNetwork] should be true when the failure is due to missing/unvalidated network.
      * Both trails are set to UNKNOWN and a history entry is recorded if this is a status change.
      */
-    fun saveError(context: Context, reason: String) {
+    fun saveError(context: Context, reason: String, isNoNetwork: Boolean = false) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().apply {
             putString(KEY_EAST, TrailStatus.UNKNOWN.name)
             putString(KEY_WEST, TrailStatus.UNKNOWN.name)
@@ -51,7 +52,7 @@ object StatusStore {
             putString(KEY_FAIL_MESSAGE, reason)
             apply()
         }
-        HistoryStore.record(context, TrailStatuses(TrailStatus.UNKNOWN, TrailStatus.UNKNOWN))
+        HistoryStore.record(context, TrailStatuses(TrailStatus.UNKNOWN, TrailStatus.UNKNOWN), reason, isNoNetwork)
     }
 
     /**

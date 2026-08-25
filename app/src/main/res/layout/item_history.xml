@@ -78,6 +78,15 @@
             android:layout_height="wrap_content"
             android:textColor="#777777"
             android:textSize="12sp"/>
+
+        <TextView
+            android:id="@+id/text_history_reason"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#886060"
+            android:textSize="11sp"
+            android:layout_marginTop="2dp"
+            android:visibility="gone"/>
     </LinearLayout>
 
 </LinearLayout>

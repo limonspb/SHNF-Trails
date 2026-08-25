@@ -31,7 +31,7 @@ class TrailUpdateWorker(
             Thread.sleep(RETRY_DELAY_MS)
             if (!isNetworkValidated()) {
                 AppLogger.e(context, TAG, "Network still not validated after wait — widget set to grey")
-                StatusStore.saveError(context, "Network not available")
+                StatusStore.saveError(context, "Network not available", isNoNetwork = true)
                 pushWidgetUpdate()
                 return Result.success()
             }
@@ -62,11 +62,11 @@ class TrailUpdateWorker(
         when (second) {
             is ScrapeResult.NetworkFailure -> {
                 AppLogger.e(context, TAG, "Retry also failed (network): ${second.reason} — widget set to grey")
-                StatusStore.saveError(context, second.reason)
+                StatusStore.saveError(context, second.reason, isNoNetwork = true)
             }
             is ScrapeResult.ParseFailure -> {
                 AppLogger.e(context, TAG, "Retry also failed (parse): ${second.reason} — widget set to grey")
-                StatusStore.saveError(context, second.reason)
+                StatusStore.saveError(context, second.reason, isNoNetwork = false)
             }
             else -> Unit
         }
