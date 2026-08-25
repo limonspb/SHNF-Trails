@@ -44,7 +44,7 @@ object HistoryStore {
 
         entries.add(HistoryEntry(statuses.east, statuses.west, System.currentTimeMillis(), reason, isNoNetwork))
 
-        val trimmed = if (entries.size > MAX_ENTRIES) entries.drop(entries.size - MAX_ENTRIES) else entries
+        val trimmed = if (entries.size > MAX_ENTRIES) smartTrim(entries) else entries
         persist(context, trimmed)
     }
 
@@ -91,6 +91,23 @@ object HistoryStore {
         }
         persist(context, migrated)
         return migrated
+    }
+
+    /**
+     * Trims one entry from [entries] (which is one over [MAX_ENTRIES]) using a smart strategy:
+     * 1. Look for the oldest no-network entry within the oldest half of the list and remove it.
+     * 2. If none found there, remove the absolute oldest entry.
+     *
+     * This preserves old meaningful status changes while evicting low-value network-blip entries first.
+     */
+    private fun smartTrim(entries: List<HistoryEntry>): List<HistoryEntry> {
+        val halfIndex = entries.size / 2
+        val noNetIdx = (0 until halfIndex).firstOrNull { entries[it].isNoNetwork }
+        return if (noNetIdx != null) {
+            entries.toMutableList().also { it.removeAt(noNetIdx) }
+        } else {
+            entries.drop(1)
+        }
     }
 
     private fun persist(context: Context, entries: List<HistoryEntry>) {
