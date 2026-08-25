@@ -73,7 +73,18 @@ class HistoryActivity : AppCompatActivity() {
     private fun renderList() {
         container.removeAllViews()
         val showNoNetwork = checkbox.isChecked
-        val visible = allEntries.filter { showNoNetwork || !it.isNoNetwork }
+        val filtered = allEntries.filter { showNoNetwork || !it.isNoNetwork }
+
+        // When no-network events are hidden, collapse consecutive entries with the same
+        // east+west status — they look identical because the hidden grey blips between
+        // them don't represent a real status change.
+        val visible = if (showNoNetwork) filtered else {
+            filtered.fold(mutableListOf<HistoryEntry>()) { acc, entry ->
+                val last = acc.lastOrNull()
+                if (last != null && last.east == entry.east && last.west == entry.west) acc
+                else { acc.add(entry); acc }
+            }
+        }
 
         if (visible.isEmpty()) {
             showEmpty(
