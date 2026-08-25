@@ -25,6 +25,7 @@
         android:background="#1E3020"/>
 
     <ScrollView
+        android:id="@+id/history_scroll"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"

@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.CheckBox
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import java.text.SimpleDateFormat
@@ -15,16 +16,21 @@ import java.util.Locale
 /**
  * Shows the log of trail-status changes, newest first.
  * No-network grey events are hidden by default; a checkbox at the top reveals them.
+ * Renders 100 rows at a time and appends more as the user scrolls to the bottom.
  */
 class HistoryActivity : AppCompatActivity() {
 
     private val dateFormat = SimpleDateFormat("EEE, MMM d · h:mm a", Locale.US)
 
+    private lateinit var scrollView: ScrollView
     private lateinit var container: LinearLayout
     private lateinit var emptyView: TextView
     private lateinit var checkbox: CheckBox
     private lateinit var inflater: LayoutInflater
+
     private var allEntries: List<HistoryEntry> = emptyList()
+    private var visibleEntries: List<HistoryEntry> = emptyList()
+    private var displayedCount = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,6 +41,7 @@ class HistoryActivity : AppCompatActivity() {
             setDisplayHomeAsUpEnabled(true)
         }
 
+        scrollView = findViewById(R.id.history_scroll)
         container = findViewById(R.id.history_container)
         emptyView = findViewById(R.id.text_empty)
         checkbox = findViewById(R.id.checkbox_show_no_network)
@@ -61,6 +68,15 @@ class HistoryActivity : AppCompatActivity() {
             }
         }
 
+        scrollView.setOnScrollChangeListener { v, _, scrollY, _, _ ->
+            val sv = v as ScrollView
+            val child = sv.getChildAt(0) ?: return@setOnScrollChangeListener
+            val atBottom = scrollY >= child.height - sv.height - LOAD_MORE_THRESHOLD_PX
+            if (atBottom && displayedCount < visibleEntries.size) {
+                appendNextPage()
+            }
+        }
+
         checkbox.setOnCheckedChangeListener { _, _ -> renderList() }
         renderList()
     }
@@ -72,21 +88,21 @@ class HistoryActivity : AppCompatActivity() {
 
     private fun renderList() {
         container.removeAllViews()
+        displayedCount = 0
+        scrollView.scrollTo(0, 0)
+
         val showNoNetwork = checkbox.isChecked
         val filtered = allEntries.filter { showNoNetwork || !it.isNoNetwork }
 
-        // When no-network events are hidden, collapse consecutive entries with the same
-        // east+west status — they look identical because the hidden grey blips between
-        // them don't represent a real status change.
-        val visible = if (showNoNetwork) filtered else {
-            filtered.fold(mutableListOf<HistoryEntry>()) { acc, entry ->
+        visibleEntries = if (showNoNetwork) filtered else {
+            filtered.fold(mutableListOf()) { acc, entry ->
                 val last = acc.lastOrNull()
                 if (last != null && last.east == entry.east && last.west == entry.west) acc
                 else { acc.add(entry); acc }
             }
         }
 
-        if (visible.isEmpty()) {
+        if (visibleEntries.isEmpty()) {
             showEmpty(
                 if (allEntries.any { it.isNoNetwork })
                     "All recorded events were no-network failures.\n\nCheck \"Show no-network events\" above to see them."
@@ -98,17 +114,23 @@ class HistoryActivity : AppCompatActivity() {
 
         emptyView.visibility = View.GONE
         container.visibility = View.VISIBLE
+        appendNextPage()
+    }
 
-        val isFirst = visible.firstOrNull() == allEntries.firstOrNull()
-        for ((index, entry) in visible.withIndex()) {
-            addRow(entry, isNow = isFirst && index == 0 && allEntries.size == 1 && entry.east == TrailStatus.UNKNOWN)
-            if (index < visible.lastIndex) {
+    /** Appends up to [PAGE_SIZE] more rows to the container. */
+    private fun appendNextPage() {
+        val from = displayedCount
+        val to = minOf(from + PAGE_SIZE, visibleEntries.size)
+        for (i in from until to) {
+            if (i > 0) {
                 val divider = View(this)
                 divider.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
                 divider.setBackgroundColor(0xFF1E3020.toInt())
                 container.addView(divider)
             }
+            addRow(visibleEntries[i])
         }
+        displayedCount = to
     }
 
     private fun showEmpty(msg: String) {
@@ -117,14 +139,14 @@ class HistoryActivity : AppCompatActivity() {
         container.visibility = View.GONE
     }
 
-    private fun addRow(entry: HistoryEntry, isNow: Boolean) {
+    private fun addRow(entry: HistoryEntry) {
         val row = inflater.inflate(R.layout.item_history, container, false)
         setDotColor(row.findViewById(R.id.dot_east), entry.east)
         setDotColor(row.findViewById(R.id.dot_west), entry.west)
         row.findViewById<TextView>(R.id.text_history_status).text =
             "E: ${label(entry.east)}  ·  W: ${label(entry.west)}"
         row.findViewById<TextView>(R.id.text_history_time).text =
-            if (isNow) "Now (no changes recorded yet)" else dateFormat.format(Date(entry.timestamp))
+            dateFormat.format(Date(entry.timestamp))
 
         val reasonView = row.findViewById<TextView>(R.id.text_history_reason)
         if (entry.reason.isNotEmpty()) {
@@ -149,6 +171,9 @@ class HistoryActivity : AppCompatActivity() {
     }
 
     companion object {
+        private const val PAGE_SIZE = 100
+        private const val LOAD_MORE_THRESHOLD_PX = 400
+
         private fun label(s: TrailStatus) = when (s) {
             TrailStatus.OPEN -> "Open"
             TrailStatus.CLOSED -> "Closed"

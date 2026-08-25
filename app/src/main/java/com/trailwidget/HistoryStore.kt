@@ -25,7 +25,7 @@ object HistoryStore {
 
     private const val PREFS = "trail_history_prefs"
     private const val KEY_HISTORY = "history"
-    private const val MAX_ENTRIES = 200
+    private const val MAX_ENTRIES = 5000
 
     /**
      * Records [statuses] only if they differ from the last stored entry.
