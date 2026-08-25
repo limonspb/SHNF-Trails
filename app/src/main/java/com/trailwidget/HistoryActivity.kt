@@ -97,12 +97,13 @@ class HistoryActivity : AppCompatActivity() {
         visibleEntries = if (showNoNetwork) filtered else {
             filtered.fold(mutableListOf()) { acc, entry ->
                 val last = acc.lastOrNull()
-                // Collapse consecutive entries only when both status AND reason are identical —
-                // different reasons (e.g. two grey events with different failure messages) are
-                // distinct transitions that should remain separately visible.
                 if (last != null && last.east == entry.east && last.west == entry.west
-                        && last.reason == entry.reason) acc
-                else { acc.add(entry); acc }
+                        && last.reason == entry.reason) {
+                    // Replace with the older entry so we preserve the actual transition time,
+                    // not the most-recent re-confirmation of the same status.
+                    acc[acc.lastIndex] = entry
+                    acc
+                } else { acc.add(entry); acc }
             }
         }
 
