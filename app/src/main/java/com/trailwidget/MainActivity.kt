@@ -220,18 +220,21 @@ class MainActivity : AppCompatActivity() {
         val cornerRadiusPx = CARD_CORNER_RADIUS_DP * resources.displayMetrics.density
 
         val backgroundColor = when (status) {
-            TrailStatus.OPEN -> 0xFF2E7D32.toInt()
-            TrailStatus.CLOSED -> 0xFFB71C1C.toInt()
+            TrailStatus.OPEN    -> 0xFF2E7D32.toInt()
+            TrailStatus.CLOSED  -> 0xFFB71C1C.toInt()
+            TrailStatus.PARTIAL -> 0xFFF57F17.toInt()
             TrailStatus.UNKNOWN -> 0xFF363636.toInt()
         }
         val statusText = when (status) {
-            TrailStatus.OPEN -> "OPEN"
-            TrailStatus.CLOSED -> "CLOSED"
+            TrailStatus.OPEN    -> "OPEN"
+            TrailStatus.CLOSED  -> "CLOSED"
+            TrailStatus.PARTIAL -> "PARTIAL"
             TrailStatus.UNKNOWN -> "Unknown"
         }
         val textColor = when (status) {
-            TrailStatus.OPEN -> 0xFFA5D6A7.toInt()
-            TrailStatus.CLOSED -> 0xFFEF9A9A.toInt()
+            TrailStatus.OPEN    -> 0xFFA5D6A7.toInt()
+            TrailStatus.CLOSED  -> 0xFFEF9A9A.toInt()
+            TrailStatus.PARTIAL -> 0xFFFFE082.toInt()
             TrailStatus.UNKNOWN -> 0xFF9E9E9E.toInt()
         }
 

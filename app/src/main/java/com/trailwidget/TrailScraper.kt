@@ -11,7 +11,7 @@ import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 
 /** Possible availability states for a trail. */
-enum class TrailStatus { OPEN, CLOSED, UNKNOWN }
+enum class TrailStatus { OPEN, CLOSED, PARTIAL, UNKNOWN }
 
 /**
  * Pair of scraped statuses for the east and west MUT trails.
@@ -65,8 +65,10 @@ object TrailScraper {
     // Word-boundary regex patterns prevent "CLOSURE" matching inside "DISCLOSURE",
     // "OPEN" inside "OPENING", etc. Longer phrases placed first for clarity (all are found
     // via findAll so alternation order only affects same-position ties, which don't occur here).
-    private val CLOSED_REGEX = Regex("""\b(?:TEMPORARILY CLOSED|TEMP CLOSED|IS CLOSED|ARE CLOSED|CLOSURE|CLOSED)\b""")
-    private val OPEN_REGEX  = Regex("""\b(?:REOPENED|NOW OPEN|IS OPEN|ARE OPEN|OPEN)\b""")
+    private val CLOSED_REGEX  = Regex("""\b(?:TEMPORARILY CLOSED|TEMP CLOSED|IS CLOSED|ARE CLOSED|CLOSURE|CLOSED)\b""")
+    private val OPEN_REGEX    = Regex("""\b(?:REOPENED|NOW OPEN|IS OPEN|ARE OPEN|OPEN)\b""")
+    // Matched before CLOSED/OPEN so "PARTIALLY CLOSED" resolves to PARTIAL, not CLOSED.
+    private val PARTIAL_REGEX = Regex("""\b(?:PARTIALLY CLOSED|PARTIALLY OPEN(?:ED)?|PARTIALLY REOPENED|PARTIAL CLOSURE|PARTIAL)\b""")
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -162,17 +164,18 @@ object TrailScraper {
 
                 if (scanEnd > scanStart) {
                     val window = uppercaseText.substring(scanStart, scanEnd)
-                    val closedMatch = CLOSED_REGEX.find(window)
-                    val openMatch  = OPEN_REGEX.find(window)
+                    val closedMatch  = CLOSED_REGEX.find(window)
+                    val openMatch    = OPEN_REGEX.find(window)
+                    val partialMatch = PARTIAL_REGEX.find(window)
 
-                    val status = when {
-                        closedMatch == null && openMatch == null -> null
-                        closedMatch == null -> TrailStatus.OPEN
-                        openMatch  == null  -> TrailStatus.CLOSED
-                        // First keyword in reading order wins.
-                        closedMatch.range.first <= openMatch.range.first -> TrailStatus.CLOSED
-                        else -> TrailStatus.OPEN
-                    }
+                    // Pick whichever keyword appears first in reading order.
+                    // PARTIAL_REGEX is checked by position, not priority, so "PARTIALLY CLOSED"
+                    // resolves to PARTIAL because it starts earlier than the "CLOSED" sub-match.
+                    val status = listOfNotNull(
+                        closedMatch?.let  { TrailStatus.CLOSED  to it.range.first },
+                        openMatch?.let    { TrailStatus.OPEN    to it.range.first },
+                        partialMatch?.let { TrailStatus.PARTIAL to it.range.first }
+                    ).minByOrNull { it.second }?.first
                     if (status != null) {
                         AppLogger.d(context, TAG, "Trail '${namesUpper[0]}' → $status")
                         return status

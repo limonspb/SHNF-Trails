@@ -52,7 +52,9 @@ object HistoryStore {
      * Returns all history entries, newest first.
      * Applies a one-time migration: legacy grey entries with no reason are assumed to be
      * no-network events (the only source of reasonless grey before v1.5).
+     * Synchronized on the same monitor as [record] to prevent lost-update races during migration.
      */
+    @Synchronized
     fun load(context: Context): List<HistoryEntry> = migrateIfNeeded(context, loadAscending(context)).reversed()
 
     private fun loadAscending(context: Context): List<HistoryEntry> {
@@ -60,15 +62,20 @@ object HistoryStore {
             .getString(KEY_HISTORY, null) ?: return emptyList()
         return try {
             val array = JSONArray(json)
-            (0 until array.length()).map { i ->
-                val o = array.getJSONObject(i)
-                HistoryEntry(
-                    east = TrailStatus.valueOf(o.getString("east")),
-                    west = TrailStatus.valueOf(o.getString("west")),
-                    timestamp = o.getLong("ts"),
-                    reason = o.optString("reason", ""),
-                    isNoNetwork = o.optBoolean("nonet", false)
-                )
+            // Parse per-entry so one corrupt/unknown record doesn't wipe the entire history.
+            (0 until array.length()).mapNotNull { i ->
+                try {
+                    val o = array.getJSONObject(i)
+                    HistoryEntry(
+                        east = TrailStatus.valueOf(o.getString("east")),
+                        west = TrailStatus.valueOf(o.getString("west")),
+                        timestamp = o.getLong("ts"),
+                        reason = o.optString("reason", ""),
+                        isNoNetwork = o.optBoolean("nonet", false)
+                    )
+                } catch (_: Exception) {
+                    null  // Skip the single corrupt entry; keep the rest.
+                }
             }
         } catch (_: Exception) {
             emptyList()

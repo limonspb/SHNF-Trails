@@ -115,8 +115,9 @@ object StatusStore {
 
     private fun parseStatus(value: String?): TrailStatus =
         when (value) {
-            "OPEN" -> TrailStatus.OPEN
-            "CLOSED" -> TrailStatus.CLOSED
-            else -> TrailStatus.UNKNOWN
+            "OPEN"    -> TrailStatus.OPEN
+            "CLOSED"  -> TrailStatus.CLOSED
+            "PARTIAL" -> TrailStatus.PARTIAL
+            else      -> TrailStatus.UNKNOWN
         }
 }

@@ -106,8 +106,9 @@ class TrailWidgetProvider : AppWidgetProvider() {
         /**
          * Fill colors used to communicate each trail state at a glance.
          */
-        private val COLOR_OPEN = 0xFF2E7D32.toInt()
-        private val COLOR_CLOSED = 0xFFB71C1C.toInt()
+        private val COLOR_OPEN    = 0xFF2E7D32.toInt()
+        private val COLOR_CLOSED  = 0xFFB71C1C.toInt()
+        private val COLOR_PARTIAL = 0xFFF9A825.toInt()
         private val COLOR_UNKNOWN = 0xFF424242.toInt()
 
         private const val DEFAULT_BITMAP_SIZE_PX = 200
@@ -295,15 +296,17 @@ class TrailWidgetProvider : AppWidgetProvider() {
 
         private fun statusText(status: TrailStatus): String =
             when (status) {
-                TrailStatus.OPEN -> "OPEN"
-                TrailStatus.CLOSED -> "CLSD"
+                TrailStatus.OPEN    -> "OPEN"
+                TrailStatus.CLOSED  -> "CLSD"
+                TrailStatus.PARTIAL -> "PART"
                 TrailStatus.UNKNOWN -> "N/A"
             }
 
         private fun colorFor(status: TrailStatus): Int =
             when (status) {
-                TrailStatus.OPEN -> COLOR_OPEN
-                TrailStatus.CLOSED -> COLOR_CLOSED
+                TrailStatus.OPEN    -> COLOR_OPEN
+                TrailStatus.CLOSED  -> COLOR_CLOSED
+                TrailStatus.PARTIAL -> COLOR_PARTIAL
                 TrailStatus.UNKNOWN -> COLOR_UNKNOWN
             }
 

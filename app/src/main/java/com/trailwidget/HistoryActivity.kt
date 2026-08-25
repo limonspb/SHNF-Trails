@@ -97,7 +97,11 @@ class HistoryActivity : AppCompatActivity() {
         visibleEntries = if (showNoNetwork) filtered else {
             filtered.fold(mutableListOf()) { acc, entry ->
                 val last = acc.lastOrNull()
-                if (last != null && last.east == entry.east && last.west == entry.west) acc
+                // Collapse consecutive entries only when both status AND reason are identical —
+                // different reasons (e.g. two grey events with different failure messages) are
+                // distinct transitions that should remain separately visible.
+                if (last != null && last.east == entry.east && last.west == entry.west
+                        && last.reason == entry.reason) acc
                 else { acc.add(entry); acc }
             }
         }
@@ -163,8 +167,9 @@ class HistoryActivity : AppCompatActivity() {
         dot.background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(when (status) {
-                TrailStatus.OPEN -> 0xFF2E7D32.toInt()
-                TrailStatus.CLOSED -> 0xFFB71C1C.toInt()
+                TrailStatus.OPEN    -> 0xFF2E7D32.toInt()
+                TrailStatus.CLOSED  -> 0xFFB71C1C.toInt()
+                TrailStatus.PARTIAL -> 0xFFF9A825.toInt()
                 TrailStatus.UNKNOWN -> 0xFF424242.toInt()
             })
         }
@@ -175,8 +180,9 @@ class HistoryActivity : AppCompatActivity() {
         private const val LOAD_MORE_THRESHOLD_PX = 400
 
         private fun label(s: TrailStatus) = when (s) {
-            TrailStatus.OPEN -> "Open"
-            TrailStatus.CLOSED -> "Closed"
+            TrailStatus.OPEN    -> "Open"
+            TrailStatus.CLOSED  -> "Closed"
+            TrailStatus.PARTIAL -> "Partial"
             TrailStatus.UNKNOWN -> "Unknown"
         }
     }
