@@ -83,17 +83,24 @@ object HistoryStore {
     }
 
     /**
-     * Backfills legacy grey entries (reason == "" and isNoNetwork == false) as no-network events.
-     * Persists the updated list if any entries were changed.
+     * Backfills grey entries that should be flagged as no-network but aren't:
+     * 1. Legacy entries with empty reason (pre-v1.5).
+     * 2. Entries whose reason text is a known network-error string but isNoNetwork=false
+     *    (caused by the MainActivity.startCheck() bug fixed in v1.6).
      */
     private fun migrateIfNeeded(context: Context, entries: List<HistoryEntry>): List<HistoryEntry> {
         val isGrey = { e: HistoryEntry -> e.east == TrailStatus.UNKNOWN && e.west == TrailStatus.UNKNOWN }
-        val needsMigration = entries.any { isGrey(it) && it.reason.isEmpty() && !it.isNoNetwork }
+        fun isNetworkReason(r: String) = r.isEmpty()
+                || r.startsWith("No internet")
+                || r.startsWith("Network not available")
+                || r.startsWith("Connection timed out")
+                || r.startsWith("Cannot reach")
+        val needsMigration = entries.any { isGrey(it) && !it.isNoNetwork && isNetworkReason(it.reason) }
         if (!needsMigration) return entries
 
         val migrated = entries.map { e ->
-            if (isGrey(e) && e.reason.isEmpty() && !e.isNoNetwork)
-                e.copy(reason = "Network not available", isNoNetwork = true)
+            if (isGrey(e) && !e.isNoNetwork && isNetworkReason(e.reason))
+                e.copy(reason = if (e.reason.isEmpty()) "Network not available" else e.reason, isNoNetwork = true)
             else e
         }
         persist(context, migrated)
